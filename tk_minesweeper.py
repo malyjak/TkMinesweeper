@@ -4,10 +4,10 @@
 ###############################################################################
 
 from functools import reduce
-from itertools import product
+from itertools import product, chain
 from operator import add
 from random import sample
-from tkinter import Button, Frame, Menu, Label, StringVar, Tk, PhotoImage
+from tkinter import Button, Frame, Menu, Label, StringVar, Tk, PhotoImage, Toplevel
 from typing import Set, Tuple
 
 
@@ -54,7 +54,8 @@ class Model(object):
         :returns: 2D list of tiles.
         """
 
-        return [[Tile() for _ in range(self.width)] for _ in range(self.height)]
+        # Width and height needs to be switched due to button placement.
+        return [[Tile() for _ in range(self.height)] for _ in range(self.width)]
 
     def add_mines(self):
         """Adds mines to the grid.
@@ -64,7 +65,6 @@ class Model(object):
         for x, y in sample(list(product(range(self.width),
                                         range(self.height))),
                            self.mines):
-
             self.grid[x][y].mine = True
 
 
@@ -92,10 +92,9 @@ class View(Frame):
         Frame.__init__(self,
                        self.master)
         self.master.title(APP_TITLE)
+        self.master.resizable(False,
+                              False)
         self.grid()
-
-        # Add menu panel
-        self.menu_panel = MenuPanel(self.master)
 
         # Add top panel.
         self.top_panel = TopPanel(self.master,
@@ -127,7 +126,8 @@ class View(Frame):
 
             return button
 
-        return [[create_button(x, y) for y in range(self.height)] for x in range(self.width)]
+        # Width and height needs to be switched due to button placement.
+        return [[create_button(y, x) for y in range(self.height)] for x in range(self.width)]
 
     def display_lose(self):
         """Displays lose emoji.
@@ -140,45 +140,6 @@ class View(Frame):
         """
 
         self.top_panel.reset_button.configure(image=self.top_panel.img_dict[2])
-
-
-class MenuPanel(Frame):
-    def __init__(self,
-                 master: Tk):
-
-        self.master = master
-
-        self.create_menus()
-
-    def donothing(self):
-        pass
-
-    def create_menus(self):
-
-        menubar = Menu(self.master)
-
-        filemenu = Menu(menubar,
-                        tearoff=0)
-        filemenu.add_command(label="Undo", command=self.donothing)
-        filemenu.add_separator()
-        filemenu.add_command(label="New", command=self.donothing)
-        filemenu.add_command(label="Load", command=self.donothing)
-        filemenu.add_command(label="Save", command=self.donothing)
-        filemenu.add_separator()
-        filemenu.add_command(label="Exit", command=self.master.quit)
-        menubar.add_cascade(label="Game", menu=filemenu)
-
-        diffmenu = Menu(menubar, tearoff=0)
-        diffmenu.add_command(label="Easy", command=self.donothing)
-        diffmenu.add_command(label="Medium", command=self.donothing)
-        diffmenu.add_command(label="Hard", command=self.donothing)
-        menubar.add_cascade(label="Difficulty", menu=diffmenu)
-
-        helpmenu = Menu(menubar, tearoff=0)
-        helpmenu.add_command(label="About...", command=self.donothing)
-        menubar.add_cascade(label="Help", menu=helpmenu)
-
-        self.master.config(menu=menubar)
 
 
 class TopPanel(Frame):
@@ -210,9 +171,8 @@ class TopPanel(Frame):
         self.reset_button = Button(master,
                                    image=self.img_dict[0],
                                    bd=0)
-        # TODO: change this to % placement.
         self.reset_button.grid(row=0,
-                               columnspan=int((width * 7) / 2))
+                               columnspan=int((width * 10) / 2))
 
         self.mines_cnt = StringVar()
         self.mines_cnt.set(f'0 / {mines}')
@@ -224,19 +184,21 @@ class TopPanel(Frame):
 class Controller(object):
     """Game logic controller.
 
-    :param width: Width of the gaming board.
-    :param height: Height of the gaming board.
-    :param: mines: Number of mines.
+    :param def_diff_lvl: Default difficulty level.
     """
 
     def __init__(self,
-                 width: int,
-                 height: int,
-                 mines: int):
+                 def_diff_lvl: int = 0):
 
-        self.width = width
-        self.height = height
-        self.mines = mines
+        # Difficulty dictionary. (width, height, mines)
+        self.diff_dict = {
+            0: (9, 9, 10),
+            1: (16, 16, 40),
+            2: (30, 16, 99)}
+
+        self.width = self.diff_dict[def_diff_lvl][0]
+        self.height = self.diff_dict[def_diff_lvl][1]
+        self.mines = self.diff_dict[def_diff_lvl][2]
 
         # 2D model of the gaming board.
         self.model = Model(self.width,
@@ -281,34 +243,64 @@ class Controller(object):
         # Bindings
         self.set_bindings()
 
+        # Menu.
+        menubar = Menu(self.root)
+
+        filemenu = Menu(menubar,
+                        tearoff=0)
+        filemenu.add_command(label="Undo (not implemented)",
+                             command=self.donothing)
+        filemenu.add_separator()
+        filemenu.add_command(label="New", command=self.reset)
+        filemenu.add_separator()
+        filemenu.add_command(label="Exit", command=self.root.quit)
+        menubar.add_cascade(label="Game", menu=filemenu)
+
+        diffmenu = Menu(menubar, tearoff=0)
+        diffmenu.add_command(label="Easy", command=lambda: self.change_diff(0))
+        diffmenu.add_command(
+            label="Medium", command=lambda: self.change_diff(1))
+        diffmenu.add_command(label="Hard", command=lambda: self.change_diff(2))
+        menubar.add_cascade(label="Difficulty", menu=diffmenu)
+
+        helpmenu = Menu(menubar, tearoff=0)
+        helpmenu.add_command(label="About...", command=self.show_about)
+        menubar.add_cascade(label="Help", menu=helpmenu)
+
+        self.root.config(menu=menubar)
+
+        # Main loop.
         self.root.mainloop()
+
+    def donothing(self):
+        # TODO
+        pass
 
     def set_bindings(self):
         """Sets tile buttons bindings.
         """
 
-        # TODO
-        for x in range(self.height):
-            for y in range(self.width):
-                def fnc_helper(f, index):
-                    """Function helper.
+        def set_binding(index: Tuple[int, int]):
+            """Sets tile button bindings.
 
-                    :returns: ???
-                    """
+            :param index: Position tuple.
+            """
 
-                    def g(_): f(index)
+            x, y = index
 
-                    return g
+            # Right click bind to reveal.
+            self.view.buttons[x][y].bind('<Button-1>',
+                                         lambda event: self.reveal((x, y)))
+            # fnc_helper(self.reveal,
+            #            (x, y)))
 
-                # Right click bind to reveal.
-                self.view.buttons[x][y].bind('<Button-1>',
-                                             fnc_helper(self.reveal,
-                                                        (x, y)))
+            # Left click bind to flag.
+            self.view.buttons[x][y].bind('<Button-3>',
+                                         lambda event: self.flag((x, y)))
 
-                # Left click bind to flag.
-                self.view.buttons[x][y].bind('<Button-3>',
-                                             fnc_helper(self.flag,
-                                                        (x, y)))
+        list(map(set_binding,
+                 product(range(self.width),
+                         range(self.height))))
 
         # Set up reset button.
         self.view.top_panel.reset_button.bind('<Button>',
@@ -386,14 +378,22 @@ class Controller(object):
         x, y = index
 
         indexes = set()
-        # TODO
-        for i in range(1, -2, -1):
-            for j in range(1, -2, -1):
-                new_x = x + i
-                new_y = y + j
 
-                if 0 <= new_x <= width - 1 and 0 <= new_y <= height - 1:
-                    indexes.add((new_x, new_y))
+        def add_index(index_inner: Tuple[int, int]):
+            """Adds a valid index to the set of indexes.
+
+            :param index: Position tuple.
+            """
+
+            x_new, y_new = index_inner
+
+            # Is valid.
+            if 0 <= x_new <= width - 1 and 0 <= y_new <= height - 1:
+                indexes.add((x_new, y_new))
+
+        list(map(add_index,
+                 product(range(x + 1, x - 2, -1),
+                         range(y + 1, y - 2, -1))))
 
         return indexes
 
@@ -431,8 +431,8 @@ class Controller(object):
 
         # Not revealed.
         if not self.model.grid[x][y].revealed:
-            cells_unrevealed = self.height * \
-                self.width - len(self.tiles_revealed) - 1
+            cells_unrevealed = self.width * \
+                self.height - len(self.tiles_revealed) - 1
 
             # Already flagged tile and end of the game.
             if self.model.grid[x][y].flagged and self.game_state:
@@ -483,16 +483,16 @@ class Controller(object):
         """
 
         val = self.get_adjacent_mines_cnt(index)
-        for adj_index in self.get_adjacent_tiles(index,
-                                                 self.width,
-                                                 self.height) | {index}:
+        for index_inner in self.get_adjacent_tiles(index,
+                                                   self.width,
+                                                   self.height) | {index}:
             # Not revealed.
-            if not self.model.grid[adj_index[0]][adj_index[1]].revealed:
-                self.reveal_tile(adj_index)
-                val = self.get_adjacent_mines_cnt(adj_index)
+            if not self.model.grid[index_inner[0]][index_inner[1]].revealed:
+                self.reveal_tile(index_inner)
+                val = self.get_adjacent_mines_cnt(index_inner)
                 # Continue recursion
                 if val == 0:
-                    self.reveal_rec(adj_index)
+                    self.reveal_rec(index_inner)
 
     def win(self):
         """Displays win.
@@ -544,12 +544,58 @@ class Controller(object):
         self.view.top_panel.mines_cnt.set(
             f'{len(self.tiles_flagged)} / {self.mines}')
 
+    def change_diff(self,
+                    diff_lvl: int):
+        """Changes game difficulty.
+
+        :param diff_lvl: Difficulty level.
+        """
+
+        # self.reset()
+        self.width = self.diff_dict[diff_lvl][0]
+        self.height = self.diff_dict[diff_lvl][1]
+        self.mines = self.diff_dict[diff_lvl][2]
+
+        # Update model.
+        self.model.width = self.width
+        self.model.height = self.height
+        self.model.mines = self.mines
+        self.model.grid = self.model.create_grid()
+        self.model.add_mines()
+
+        # Update View.
+        self.view.width = self.width
+        self.view.height = self.height
+        self.view.mines = self.mines
+        for button in chain.from_iterable(self.view.buttons):
+            button.destroy()
+        self.view.buttons = self.view.create_buttons()
+
+        # Reset
+        self.first_mine = True
+        self.game_state = None
+        self.tiles_revealed = set()
+        self.tiles_flagged = set()
+        self.update_cnt()
+        self.view.top_panel.reset_button.configure(
+            image=self.view.top_panel.img_dict[0])
+        self.set_bindings()
+
+    def show_about(self):
+        # about_window = Tk()
+        # about_window = about_window.title("About")
+        # about_text = Label(
+        #     about_window, text='Here are the rules...', foreground="black")
+        # about_text.grid(row=0, column=0, columnspan=3)
+        # about_window.mainloop()
+        about_window = Toplevel(self.root)
+        about_window.geometry("420x140")
+        about_window.title("About")
+        about_window.resizable(False,
+                               False)
+        Label(about_window,
+              text="Copyright (C) 2022  Jakub Maly – https://github.com/malyjak\nThis is experimental software; see the source code for copying conditions.\nThere is ABSOLUTELY NO WARRANTY; not even for\nMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\nSee the documentation for example usage.").place(x=10, y=20)
+
 
 if __name__ == '__main__':
-    n = 'e'
-
-    Controller(*{
-        'e': (9, 9, 10),
-        'm': (16, 16, 40),
-        'h': (30, 16, 99)
-    }[n.lower()])
+    Controller()

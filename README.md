@@ -42,7 +42,10 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-This project simulates the minesweeper game that comes with the Windows.
+This project simulates the minesweeper game that used to come with Windows OS distribution.
+
+<img src="img/demo.png" alt="Demo">
+
 
 
 ## Developers
